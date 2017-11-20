@@ -38,12 +38,11 @@ func (storage *DisneylandStorage) CreateJob(job *Job, creator User) (*Job, error
 	}
 
 	createdJob := &Job{}
-	curTime := time.Now()
 	err = tx.QueryRow(`
-		INSERT INTO jobs (project, status, metadata, creator, input, output, kind, created, last_modified)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO jobs (project, status, metadata, creator, input, output, kind)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, project, status, metadata, input, output, kind;`,
-		job.Project, job.Status, job.Metadata, creator.Username, job.Input, job.Output, job.Kind, curTime, curTime,
+		job.Project, job.Status, job.Metadata, creator.Username, job.Input, job.Output, job.Kind,
 	).Scan(
 		&createdJob.Id,
 		&createdJob.Project,
@@ -94,6 +93,7 @@ func (storage *DisneylandStorage) GetJob(id uint64) (*Job, error) {
 	}
 	return job, err
 }
+
 func queryJobs(rows *sql.Rows) (*ListOfJobs, error) {
 	ret := &ListOfJobs{Jobs: []*Job{}}
 	var err error
@@ -145,7 +145,7 @@ func (storage *DisneylandStorage) UpdateJob(job *Job) (*Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	curTime:=time.Now()
+	curTime:=time.Now().UTC()
 
 	resultJob := &Job{}
 	err = tx.QueryRow(`
@@ -190,6 +190,7 @@ func (storage *DisneylandStorage) PullJobs(how_many uint32, project string, kind
 	if err != nil {
 		return nil, err
 	}
+	curTime:=time.Now().UTC()
 	strQuery := `WITH updatedPts AS (
 					WITH pulledPts AS (
 						SELECT id, project, kind
@@ -206,7 +207,7 @@ func (storage *DisneylandStorage) PullJobs(how_many uint32, project string, kind
 				FROM updatedPts
 				ORDER BY id ASC;`
 
-	rows, err := tx.Query(strQuery, Job_PENDING, project, kind, how_many, Job_PULLED, time.Now())
+	rows, err := tx.Query(strQuery, Job_PENDING, project, kind, how_many, Job_PULLED, curTime)
 
 	if err != nil {
 		return nil, err
