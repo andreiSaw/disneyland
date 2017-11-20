@@ -198,7 +198,7 @@ func (storage *DisneylandStorage) PullJobs(how_many uint32, project string, kind
 						LIMIT $4
 						FOR UPDATE SKIP LOCKED)
 					UPDATE jobs pts
-					SET status=$5
+					SET status=$5, last_modified=$6
 					FROM pulledPts
 					WHERE pulledPts.id=pts.id AND pulledPts.project=pts.project AND pulledPts.kind=pts.kind
 					RETURNING pts.id, pts.project, pts.status, pts.metadata, pts.input, pts.output, pts.kind)
@@ -206,7 +206,7 @@ func (storage *DisneylandStorage) PullJobs(how_many uint32, project string, kind
 				FROM updatedPts
 				ORDER BY id ASC;`
 
-	rows, err := tx.Query(strQuery, Job_PENDING, project, kind, how_many, Job_PULLED)
+	rows, err := tx.Query(strQuery, Job_PENDING, project, kind, how_many, Job_PULLED, time.Now())
 
 	if err != nil {
 		return nil, err
