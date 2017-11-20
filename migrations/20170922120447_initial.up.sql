@@ -1,7 +1,7 @@
 CREATE TABLE jobs (
   id           SERIAL NOT NULL,
   project      VARCHAR(40),
-  status       SMALLINT,
+  status       SMALLINT DEFAULT 0,
 
   metadata     TEXT   NOT NULL             DEFAULT '',
 
