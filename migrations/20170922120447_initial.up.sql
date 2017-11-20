@@ -6,6 +6,7 @@ CREATE TABLE jobs (
   metadata     TEXT   NOT NULL             DEFAULT '',
 
   created      TIMESTAMP WITHOUT TIME ZONE DEFAULT (now() AT TIME ZONE 'utc'),
+  last_modified TIMESTAMP WITHOUT TIME ZONE DEFAULT (now() AT TIME ZONE 'utc'),
   creator      VARCHAR(40),
 
   input        TEXT   NOT NULL             DEFAULT '',

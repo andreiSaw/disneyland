@@ -3,6 +3,7 @@ package disneyland
 import (
 	"database/sql"
 	_ "github.com/lib/pq"
+	"time"
 )
 
 type DisneylandStorageConfig struct {
@@ -37,11 +38,12 @@ func (storage *DisneylandStorage) CreateJob(job *Job, creator User) (*Job, error
 	}
 
 	createdJob := &Job{}
+	curTime := time.Now()
 	err = tx.QueryRow(`
-		INSERT INTO jobs (project, status, metadata, creator, input, output, kind)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO jobs (project, status, metadata, creator, input, output, kind, created, last_modified)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, project, status, metadata, input, output, kind;`,
-		job.Project, job.Status, job.Metadata, creator.Username, job.Input, job.Output, job.Kind,
+		job.Project, job.Status, job.Metadata, creator.Username, job.Input, job.Output, job.Kind, curTime, curTime,
 	).Scan(
 		&createdJob.Id,
 		&createdJob.Project,
@@ -143,6 +145,7 @@ func (storage *DisneylandStorage) UpdateJob(job *Job) (*Job, error) {
 	if err != nil {
 		return nil, err
 	}
+	curTime:=time.Now()
 
 	resultJob := &Job{}
 	err = tx.QueryRow(`
@@ -151,13 +154,15 @@ func (storage *DisneylandStorage) UpdateJob(job *Job) (*Job, error) {
 			status=$1,
 			metadata=$2,
 			output=$3,
-			kind=$4
-		WHERE id=$5
+			kind=$4,
+			last_modified=$5
+		WHERE id=$6
 		RETURNING id, project, status, metadata, input, output, kind;`,
 		job.Status,
 		job.Metadata,
 		job.Output,
 		job.Kind,
+		curTime,
 		job.Id,
 	).Scan(
 		&resultJob.Id,

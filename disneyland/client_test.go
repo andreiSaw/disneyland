@@ -7,7 +7,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v2"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -95,8 +94,8 @@ func TestGRPCJobCRUD(t *testing.T) {
 	}
 
 	createdJob.Status = Job_PENDING
-	createdJob.Metadata = "meta_test"
-	createdJob.Output = "output_test"
+	createdJob.Metadata = "updated_test"
+	createdJob.Output = "updated_test"
 	createdJob.Kind = "docker"
 
 	updatedJob, err := c.ModifyJob(ctx, createdJob)
@@ -122,44 +121,9 @@ func TestGRPCJobCRUD(t *testing.T) {
 	if len(pulledJobs.Jobs) < 1 {
 		t.Fail()
 	}
-
-	_, err = c.DeleteJob(ctx, &RequestWithId{Id: updatedJob.Id})
+	createdJob, err = c.CreateJob(ctx, &Job{Kind: "remove"})
 	checkTestErr(err, t)
 
-	mJob1 := &Job{Kind: "test1"}
-	mJob2 := &Job{Kind: "test2"}
-	createdJobs, err := c.CreateMultipeJobs(ctx, &ListOfJobs{[]*Job{mJob1, mJob2}})
-	if len(createdJobs.Jobs) != 2 {
-		t.Fail()
-	}
+	_, err = c.DeleteJob(ctx, &RequestWithId{Id: createdJob.Id})
 	checkTestErr(err, t)
-
-	jobs := []*ListJobsRequest{
-		{Kind: "test1", HowMany: 1, Project: ""},
-		{Kind: "test2", HowMany: 1, Project: ""},
-	}
-	stream, err := c.BidiJobs(context.Background())
-	waitc := make(chan struct{})
-	go func() {
-		for {
-			in, err := stream.Recv()
-			if err == io.EOF {
-				// read done.
-				close(waitc)
-				return
-			}
-			if err != nil {
-				log.Fatalf("Failed to receive a job : %v", err)
-			}
-			log.Printf("Client job.id =%d", in.Id)
-		}
-	}()
-	for _, job := range jobs {
-		if err := stream.Send(job); err != nil {
-			log.Fatalf("Failed to send a job: %v", err)
-		}
-	}
-	stream.CloseSend()
-	<-waitc
-
 }

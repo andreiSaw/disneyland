@@ -5,7 +5,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"io"
 )
 
 type Server struct {
@@ -119,65 +118,4 @@ func (s *Server) DeleteJob(ctx context.Context, in *RequestWithId) (*Job, error)
 	}
 
 	return ret, nil
-}
-
-func (s *Server) BidiJobs(stream Disneyland_BidiJobsServer) error {
-	for {
-		req, err := stream.Recv()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return detailedInternalError(err)
-		}
-		//fmt.Printf("Got %v", req)
-
-		ret, err := s.Storage.PullJobs(req.HowMany, req.Project, req.Kind)
-		if err != nil {
-			return detailedInternalError(err)
-		}
-		jobs := ret.Jobs
-		for i := 0; i < len(jobs); i++ {
-			if err := stream.Send(jobs[i]); err != nil {
-				return detailedInternalError(err)
-			}
-		}
-		//break
-	}
-	return nil
-}
-
-func (s *Server) CreateMultipeJobs(ctx context.Context, in *ListOfJobs) (*ListOfJobs, error) {
-	user := getAuthUserFromContext(ctx)
-	// if worker - Cannot create jobs
-	if user.IsWorker() {
-		return nil, grpc.Errorf(codes.PermissionDenied, "Workers cannot create jobs")
-	}
-	// if user - Can create jobs in their project
-	jobs := in.Jobs
-	n := len(jobs)
-	errors := make(chan error, n)
-	results := make(chan *Job, n)
-	r := []*Job{}
-	for i := 0; i < n; i++ {
-		go func(i int, n int) {
-			jobs[i].Project = user.ProjectAccess
-			ret, err := s.Storage.CreateJob(jobs[i], user)
-			r = append(r, ret)
-			if err != nil {
-				errors <- err
-				results <- nil
-			}
-			if i == n-1 {
-				errors <- nil
-				results <- ret
-			}
-		}(i, n)
-	}
-	err := <-errors
-	<-results
-	if err != nil {
-		return nil, detailedInternalError(err)
-	}
-	return &ListOfJobs{Jobs: r}, nil
 }
