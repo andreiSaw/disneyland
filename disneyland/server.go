@@ -5,6 +5,9 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"github.com/hashicorp/go-multierror"
+ "github.com/abiosoft/semaphore"
+
 )
 
 type Server struct {
@@ -118,4 +121,44 @@ func (s *Server) DeleteJob(ctx context.Context, in *RequestWithId) (*Job, error)
 	}
 
 	return ret, nil
+}
+
+func (s *Server) CreateMultipeJobs(ctx context.Context, in *ListOfJobs) (*ListOfJobs, error) {
+	user := getAuthUserFromContext(ctx)
+	//if worker - Cannot create jobs
+	if user.IsWorker() {
+		return nil, grpc.Errorf(codes.PermissionDenied, "Workers cannot create jobs")
+	}
+	// if user - Can create jobs in their project
+	jobs := in.Jobs
+	n := len(jobs)
+	errors := make(chan error, n)
+	results := make(chan *Job, n)
+	sem := semaphore.New(n) // new semaphore with 5 permits
+	var retError *multierror.Error
+	r := []*Job{}
+	for i := 0; i < n; i++ {
+		go func(i int, n int) {
+			jobs[i].Project = user.ProjectAccess
+			ret, err := s.Storage.CreateJob(jobs[i], user)
+			results <- ret
+			errors <- err
+			sem.Acquire();
+		}(i, n)
+	}
+	sem.ReleaseMany(n);
+	close(results)
+	close(errors)
+
+	for err := range errors {
+		retError = multierror.Append(retError, err)
+	}
+	for job := range results {
+		r = append(r, job)
+	}
+	complexError := retError.ErrorOrNil()
+	if complexError != nil {
+		return &ListOfJobs{Jobs: r}, detailedInternalError(complexError)
+	}
+	return &ListOfJobs{Jobs: r}, nil
 }
