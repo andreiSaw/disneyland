@@ -6,8 +6,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"github.com/hashicorp/go-multierror"
- "github.com/abiosoft/semaphore"
-
+	"github.com/abiosoft/semaphore"
 )
 
 type Server struct {
@@ -134,7 +133,7 @@ func (s *Server) CreateMultipeJobs(ctx context.Context, in *ListOfJobs) (*ListOf
 	n := len(jobs)
 	errors := make(chan error, n)
 	results := make(chan *Job, n)
-	sem := semaphore.New(n) // new semaphore with 5 permits
+	sem := semaphore.New(n) // new semaphore with n permits
 	var retError *multierror.Error
 	r := []*Job{}
 	for i := 0; i < n; i++ {
