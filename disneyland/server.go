@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"github.com/hashicorp/go-multierror"
 	"github.com/abiosoft/semaphore"
+	"io"
 )
 
 type Server struct {
@@ -160,4 +161,30 @@ func (s *Server) CreateMultipeJobs(ctx context.Context, in *ListOfJobs) (*ListOf
 		return &ListOfJobs{Jobs: r}, detailedInternalError(complexError)
 	}
 	return &ListOfJobs{Jobs: r}, nil
+}
+
+func (s *Server) BidiJobs(stream Disneyland_BidiJobsServer) error {
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return detailedInternalError(err)
+		}
+		fmt.Printf("Got %v", req)
+
+		ret, err := s.Storage.PullJobs(req.HowMany, req.Project, req.Kind)
+		if err != nil {
+			return detailedInternalError(err)
+		}
+		jobs := ret.Jobs
+		for i := 0; i < len(jobs); i++ {
+			if err := stream.Send(jobs[i]); err != nil {
+				return detailedInternalError(err)
+			}
+		}
+		break
+	}
+	return nil
 }
