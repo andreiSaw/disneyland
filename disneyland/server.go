@@ -5,9 +5,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"github.com/hashicorp/go-multierror"
-	"github.com/abiosoft/semaphore"
-	"io"
 )
 
 type Server struct {
@@ -64,6 +61,13 @@ func (s *Server) ListJobs(ctx context.Context, in *ListJobsRequest) (*ListOfJobs
 	// if user - Can list jobs by kind in their project
 	in.Project = user.ProjectAccess
 
+	if in.Kind == "" {
+		in.Kind = "%"
+	}
+
+	fmt.Println(in.Project)
+	fmt.Println(in.Kind)
+	fmt.Println(user.KindAccess)
 	ret, err := s.Storage.ListJobs(in.HowMany, in.Project, in.Kind)
 	if err != nil {
 		return nil, detailedInternalError(err)
@@ -93,11 +97,22 @@ func (s *Server) PullPendingJobs(ctx context.Context, in *ListJobsRequest) (*Lis
 	// if worker - Can pull jobs with proper kind
 	if user.IsWorker() {
 		in.Kind = user.KindAccess
+		if in.Project == "" {
+			in.Project = "%"
+		}
 	}
+
 	// if user - Can pull jobs from their project
 	if user.IsUser() {
 		in.Project = user.ProjectAccess
+		if in.Kind == "" {
+			in.Kind = "%"
+		}
 	}
+
+	fmt.Println(in.Project)
+	fmt.Println(in.Kind)
+	fmt.Println(user.KindAccess)
 	pts, err := s.Storage.PullJobs(in.HowMany, in.Project, in.Kind)
 
 	if err != nil {
@@ -121,70 +136,4 @@ func (s *Server) DeleteJob(ctx context.Context, in *RequestWithId) (*Job, error)
 	}
 
 	return ret, nil
-}
-
-func (s *Server) CreateMultipeJobs(ctx context.Context, in *ListOfJobs) (*ListOfJobs, error) {
-	user := getAuthUserFromContext(ctx)
-	//if worker - Cannot create jobs
-	if user.IsWorker() {
-		return nil, grpc.Errorf(codes.PermissionDenied, "Workers cannot create jobs")
-	}
-	// if user - Can create jobs in their project
-	jobs := in.Jobs
-	n := len(jobs)
-	errors := make(chan error, n)
-	results := make(chan *Job, n)
-	sem := semaphore.New(n) // new semaphore with n permits
-	var retError *multierror.Error
-	r := []*Job{}
-	for i := 0; i < n; i++ {
-		go func(i int, n int) {
-			jobs[i].Project = user.ProjectAccess
-			ret, err := s.Storage.CreateJob(jobs[i], user)
-			results <- ret
-			errors <- err
-			sem.Acquire();
-		}(i, n)
-	}
-	sem.ReleaseMany(n);
-	close(results)
-	close(errors)
-
-	for err := range errors {
-		retError = multierror.Append(retError, err)
-	}
-	for job := range results {
-		r = append(r, job)
-	}
-	complexError := retError.ErrorOrNil()
-	if complexError != nil {
-		return &ListOfJobs{Jobs: r}, detailedInternalError(complexError)
-	}
-	return &ListOfJobs{Jobs: r}, nil
-}
-
-func (s *Server) BidiJobs(stream Disneyland_BidiJobsServer) error {
-	for {
-		req, err := stream.Recv()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return detailedInternalError(err)
-		}
-		fmt.Printf("Got %v", req)
-
-		ret, err := s.Storage.PullJobs(req.HowMany, req.Project, req.Kind)
-		if err != nil {
-			return detailedInternalError(err)
-		}
-		jobs := ret.Jobs
-		for i := 0; i < len(jobs); i++ {
-			if err := stream.Send(jobs[i]); err != nil {
-				return detailedInternalError(err)
-			}
-		}
-		break
-	}
-	return nil
 }

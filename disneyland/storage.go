@@ -3,7 +3,6 @@ package disneyland
 import (
 	"database/sql"
 	_ "github.com/lib/pq"
-	"time"
 )
 
 type DisneylandStorageConfig struct {
@@ -122,7 +121,7 @@ func queryJobs(rows *sql.Rows) (*ListOfJobs, error) {
 func (storage *DisneylandStorage) ListJobs(howmany uint32, project string, kind string) (*ListOfJobs, error) {
 	strQuery := `SELECT id, project, status, metadata, input, output, kind
 				 FROM jobs
-				 WHERE project LIKE '%' || $1 || '%' AND kind LIKE '%' || $2 || '%'
+				 WHERE project LIKE $1 AND kind LIKE $2
 				 LIMIT $3;`
 
 	rows, err := storage.db.Query(strQuery, project, kind, howmany)
@@ -145,7 +144,6 @@ func (storage *DisneylandStorage) UpdateJob(job *Job) (*Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	curTime:=time.Now().UTC()
 
 	resultJob := &Job{}
 	err = tx.QueryRow(`
@@ -154,15 +152,13 @@ func (storage *DisneylandStorage) UpdateJob(job *Job) (*Job, error) {
 			status=$1,
 			metadata=$2,
 			output=$3,
-			kind=$4,
-			last_modified=$5
-		WHERE id=$6
+			kind=$4
+		WHERE id=$5
 		RETURNING id, project, status, metadata, input, output, kind;`,
 		job.Status,
 		job.Metadata,
 		job.Output,
 		job.Kind,
-		curTime,
 		job.Id,
 	).Scan(
 		&resultJob.Id,
@@ -190,16 +186,15 @@ func (storage *DisneylandStorage) PullJobs(how_many uint32, project string, kind
 	if err != nil {
 		return nil, err
 	}
-	curTime:=time.Now().UTC()
 	strQuery := `WITH updatedPts AS (
 					WITH pulledPts AS (
 						SELECT id, project, kind
 						FROM jobs
-						WHERE status=$1 AND project LIKE '%' || $2 || '%' AND kind LIKE '%' || $3 || '%'
+						WHERE status=$1 AND project LIKE $2 AND kind LIKE $3
 						LIMIT $4
 						FOR UPDATE SKIP LOCKED)
 					UPDATE jobs pts
-					SET status=$5, last_modified=$6
+					SET status=$5
 					FROM pulledPts
 					WHERE pulledPts.id=pts.id AND pulledPts.project=pts.project AND pulledPts.kind=pts.kind
 					RETURNING pts.id, pts.project, pts.status, pts.metadata, pts.input, pts.output, pts.kind)
@@ -207,7 +202,7 @@ func (storage *DisneylandStorage) PullJobs(how_many uint32, project string, kind
 				FROM updatedPts
 				ORDER BY id ASC;`
 
-	rows, err := tx.Query(strQuery, Job_PENDING, project, kind, how_many, Job_PULLED, curTime)
+	rows, err := tx.Query(strQuery, Job_PENDING, project, kind, how_many, Job_PULLED)
 
 	if err != nil {
 		return nil, err

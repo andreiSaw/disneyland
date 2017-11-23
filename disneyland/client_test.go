@@ -126,13 +126,4 @@ func TestGRPCJobCRUD(t *testing.T) {
 
 	_, err = c.DeleteJob(ctx, &RequestWithId{Id: createdJob.Id})
 	checkTestErr(err, t)
-
-	mJob1 := &Job{Kind: "mul1"}
-	mJob2 := &Job{Kind: "mul2"}
-	createdJobs, err := c.CreateMultipeJobs(ctx, &ListOfJobs{[]*Job{mJob1, mJob2}})
-	if len(createdJobs.Jobs) != 2 {
-		t.Fail()
-	}
-	checkTestErr(err, t)
-
 }
