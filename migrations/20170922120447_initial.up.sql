@@ -1,12 +1,11 @@
 CREATE TABLE jobs (
   id           SERIAL NOT NULL,
   project      VARCHAR(40),
-  status       SMALLINT DEFAULT 0,
+  status       SMALLINT,
 
   metadata     TEXT   NOT NULL             DEFAULT '',
 
   created      TIMESTAMP WITHOUT TIME ZONE DEFAULT (now() AT TIME ZONE 'utc'),
-  last_modified TIMESTAMP WITHOUT TIME ZONE DEFAULT (now() AT TIME ZONE 'utc'),
   creator      VARCHAR(40),
 
   input        TEXT   NOT NULL             DEFAULT '',
