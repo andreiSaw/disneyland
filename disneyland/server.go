@@ -61,13 +61,6 @@ func (s *Server) ListJobs(ctx context.Context, in *ListJobsRequest) (*ListOfJobs
 	// if user - Can list jobs by kind in their project
 	in.Project = user.ProjectAccess
 
-	if in.Kind == "" {
-		in.Kind = "%"
-	}
-
-	fmt.Println(in.Project)
-	fmt.Println(in.Kind)
-	fmt.Println(user.KindAccess)
 	ret, err := s.Storage.ListJobs(in.HowMany, in.Project, in.Kind)
 	if err != nil {
 		return nil, detailedInternalError(err)
@@ -97,22 +90,12 @@ func (s *Server) PullPendingJobs(ctx context.Context, in *ListJobsRequest) (*Lis
 	// if worker - Can pull jobs with proper kind
 	if user.IsWorker() {
 		in.Kind = user.KindAccess
-		if in.Project == "" {
-			in.Project = "%"
-		}
 	}
-
 	// if user - Can pull jobs from their project
 	if user.IsUser() {
 		in.Project = user.ProjectAccess
-		if in.Kind == "" {
-			in.Kind = "%"
-		}
 	}
 
-	fmt.Println(in.Project)
-	fmt.Println(in.Kind)
-	fmt.Println(user.KindAccess)
 	pts, err := s.Storage.PullJobs(in.HowMany, in.Project, in.Kind)
 
 	if err != nil {
