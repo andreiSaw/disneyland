@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	_ "github.com/lib/pq"
 	"strconv"
-	"fmt"
 )
 
 const PULLINGSTRQ_1 = `WITH updatedPts AS (
@@ -174,8 +173,6 @@ func (storage *DisneylandStorage) ListJobs(howmany uint32, project string, kind 
 	}
 	strQuery += `;`
 
-	fmt.Print(strQuery)
-
 	if projectFlag {
 		if kindFlag {
 			if limitFlag {
@@ -278,8 +275,6 @@ func (storage *DisneylandStorage) PullJobs(howmany uint32, project string, kind 
 		limitFlag = true
 	}
 	strQuery += PULLINGSTRQ_2
-
-	fmt.Print(strQuery)
 
 	if projectFlag {
 		if kindFlag {
