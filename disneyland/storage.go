@@ -351,3 +351,25 @@ func (storage *DisneylandStorage) DeleteJob(id uint64, userProject string) (*Job
 	}
 	return resultJob, err
 }
+
+func (storage *DisneylandStorage) GetLengthQueue(queueName string) (uint32, error) {
+	tx, err := storage.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	var q uint32
+	err = tx.QueryRow(`
+		SELECT COUNT (project) as q
+		FROM jobs
+		WHERE project=$1
+		RETURNING q;`, queueName,
+	).Scan(q)
+	if err != nil {
+		return 0, err
+	}
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+	}
+	return q, err
+}

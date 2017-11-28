@@ -120,3 +120,18 @@ func (s *Server) DeleteJob(ctx context.Context, in *RequestWithId) (*Job, error)
 
 	return ret, nil
 }
+
+func (s *Server) GetLengthQueue(ctx context.Context, in *Queue) (*Length, error) {
+	user := getAuthUserFromContext(ctx)
+	// if worker - Cannot ask length
+	if user.IsWorker() {
+		return nil, grpc.Errorf(codes.PermissionDenied, "Workers cannot get queue length")
+	}
+	// if user - Can ask length
+	ret, err := s.Storage.GetLengthQueue(in.Name)
+	if err != nil {
+		return nil, detailedInternalError(err)
+	}
+
+	return &Length{ret}, nil
+}
