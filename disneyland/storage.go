@@ -174,6 +174,7 @@ func (storage *DisneylandStorage) ListJobs(howmany uint32, project string, kind 
 		inc++
 		kindFlag = true
 	}
+
 	if howmany != 0 {
 		strQuery += " LIMIT $"
 		strQuery += strconv.Itoa(inc)
